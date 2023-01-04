@@ -29,6 +29,22 @@ describe('Integration with Nest.js', () => {
   beforeAll(async () => {
     initializeTransactionalContext();
 
+    const dataSource2 = new DataSource({
+      type: 'postgres',
+      host: 'localhost',
+      port: 5435,
+      username: 'postgres',
+      password: 'postgres',
+      entities: [Post],
+      synchronize: true,
+      logging: true,
+      logger: 'simple-console',
+    });
+
+    await dataSource2.initialize();
+
+    addTransactionalDataSource({ name: 'dataSource2', dataSource: dataSource2 });
+
     app = await Test.createTestingModule({
       imports: [
         TypeOrmModule.forRootAsync({
@@ -41,7 +57,8 @@ describe('Integration with Nest.js', () => {
               password: 'postgres',
               entities: [Post],
               synchronize: true,
-              logging: false,
+              logging: true,
+              logger: 'advanced-console',
             };
           },
           async dataSourceFactory(options) {
@@ -75,15 +92,13 @@ describe('Integration with Nest.js', () => {
     await app.close();
   });
 
-  it('should create a post using service', async () => {
+  it.only('should create a post using service', async () => {
     const message = 'NestJS - A successful post';
 
-    const [writtenPost, readPost] = await runInTransaction(async () => {
-      const writtenPost = await writerService.createPost(message);
-      const readPost = await readerService.getPostByMessage(message);
-
-      return [writtenPost, readPost];
-    });
+    // below functions are using @Transactional({ connectionName: 'dataSource2' }).
+    // START TRANSACTION & COMMIT is called for `dataSource2`, but queries inside functions are executed on `dataSource`.
+    const writtenPost = await writerService.createPostWithDecorator(message);
+    const readPost = await readerService.getPostByMessage(message);
 
     expect(writtenPost.id).toBeGreaterThan(0);
     expect(readPost.id).toBe(writtenPost.id);

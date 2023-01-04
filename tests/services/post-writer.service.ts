@@ -20,7 +20,7 @@ export class PostWriterService {
     return post;
   }
 
-  @Transactional()
+  @Transactional({ connectionName: 'dataSource2' })
   async createPostWithDecorator(message: string, fail: boolean = false) {
     const post = new Post();
 
